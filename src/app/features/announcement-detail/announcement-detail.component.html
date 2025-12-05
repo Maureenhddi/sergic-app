@@ -1,0 +1,583 @@
+<app-header />
+
+<main class="detail-page">
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="loader"></div>
+      <p>Chargement de l'annonce...</p>
+    </div>
+  }
+
+  @if (error()) {
+    <div class="error-state" role="alert">
+      <div class="error-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <h3>Une erreur est survenue</h3>
+      <p>{{ error() }}</p>
+      <a routerLink="/annonces" class="btn-back">Retour aux annonces</a>
+    </div>
+  }
+
+  @if (!loading() && !error() && announcement(); as ann) {
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb" aria-label="Fil d'ariane">
+      <a routerLink="/annonces">Annonces</a>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 18l6-6-6-6"/>
+      </svg>
+      <span>{{ ann.city }}</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 18l6-6-6-6"/>
+      </svg>
+      <span class="current">{{ ann.label_type }}</span>
+    </nav>
+
+    <!-- Hero Gallery -->
+    <section class="hero-gallery">
+      @if (pictures().length > 0) {
+        <div class="gallery-container">
+          <div class="main-image-wrapper">
+            <img
+              [src]="getImageUrl(pictures()[currentImageIndex()])"
+              [alt]="ann.title || ann.label_type"
+              class="hero-image"
+            />
+
+            <!-- Overlay gradient -->
+            <div class="image-overlay"></div>
+
+            <!-- Navigation -->
+            @if (pictures().length > 1) {
+              <button type="button" class="nav-btn prev" (click)="prevImage()">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M15 18l-6-6 6-6"/>
+                </svg>
+              </button>
+              <button type="button" class="nav-btn next" (click)="nextImage()">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </button>
+            }
+
+            <!-- Photo count badge -->
+            <div class="photo-count">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <path d="M21 15l-5-5L5 21"/>
+              </svg>
+              <span>{{ currentImageIndex() + 1 }} / {{ pictures().length }}</span>
+            </div>
+          </div>
+
+          <!-- Thumbnails strip -->
+          @if (pictures().length > 1) {
+            <div class="thumbnails-strip" #thumbnailsContainer>
+              @for (pic of pictures(); track pic; let i = $index) {
+                <button
+                  type="button"
+                  class="thumb"
+                  [class.active]="i === currentImageIndex()"
+                  (click)="selectImage(i)"
+                >
+                  <img [src]="getImageUrl(pic)" [alt]="'Photo ' + (i + 1)" />
+                </button>
+              }
+            </div>
+          }
+        </div>
+      } @else if (ann.picture) {
+        <div class="gallery-container">
+          <div class="main-image-wrapper single">
+            <img [src]="getImageUrl(ann.picture)" [alt]="ann.title || ann.label_type" class="hero-image" />
+          </div>
+        </div>
+      } @else {
+        <div class="no-photo">
+          <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <path d="M21 15l-5-5L5 21"/>
+          </svg>
+          <span>Aucune photo disponible</span>
+        </div>
+      }
+
+      <!-- Back button floating -->
+      <a routerLink="/annonces" class="back-floating">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+      </a>
+
+      <!-- Favorite button floating -->
+      <button type="button" class="fav-floating">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+      </button>
+    </section>
+
+    <!-- Main content -->
+    <div class="content-wrapper">
+      <div class="content-grid">
+        <!-- Left column - Details -->
+        <div class="details-column">
+          <!-- Header card -->
+          <div class="card header-card">
+            <div class="badge-row">
+              <span class="contract-badge" [class.rental]="ann.contract_type === 'location'">
+                {{ getContractLabel(ann.contract_type) }}
+              </span>
+              <span class="property-type">{{ ann.place_type | titlecase }}</span>
+            </div>
+            <h1 class="property-title">{{ ann.title || (ann.label_type + ' à ' + ann.city) }}</h1>
+            <div class="location-row">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+              <span>{{ ann.zip_code }} {{ ann.city }}</span>
+            </div>
+            <div class="ref-row">Réf. {{ ann.reference }}</div>
+          </div>
+
+          <!-- Caractéristiques combinées -->
+          <div class="card characteristics-card">
+            <!-- Chiffres clés -->
+            <div class="key-stats">
+              <div class="stat-item main">
+                <span class="stat-value">{{ ann.square_meter }}</span>
+                <span class="stat-unit">m²</span>
+              </div>
+              @if (nbPieces()) {
+                <div class="stat-item">
+                  <span class="stat-value">{{ nbPieces() }}</span>
+                  <span class="stat-label">pièces</span>
+                </div>
+              }
+              @if (ann.number_of_bedrooms) {
+                <div class="stat-item">
+                  <span class="stat-value">{{ ann.number_of_bedrooms }}</span>
+                  <span class="stat-label">chambre{{ ann.number_of_bedrooms > 1 ? 's' : '' }}</span>
+                </div>
+              }
+            </div>
+
+            <!-- Détails avec icônes -->
+            <div class="details-grid">
+              <!-- Salle de bains / eau -->
+              @if (nbSallesDeBains() || nbSallesEau()) {
+                <div class="detail-item">
+                  <div class="detail-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M4 12h16a1 1 0 0 1 1 1v3a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4v-3a1 1 0 0 1 1-1z"/>
+                      <path d="M6 12V5a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2"/>
+                      <circle cx="17" cy="7" r="2"/>
+                    </svg>
+                  </div>
+                  <span class="detail-text">
+                    @if (nbSallesDeBains() && nbSallesEau()) {
+                      {{ nbSallesDeBains() }} salle de bains / {{ nbSallesEau() }} salle d'eau
+                    } @else if (nbSallesDeBains()) {
+                      {{ nbSallesDeBains() }} salle{{ nbSallesDeBains() !== '1' ? 's' : '' }} de bains
+                    } @else {
+                      {{ nbSallesEau() }} salle{{ nbSallesEau() !== '1' ? 's' : '' }} d'eau
+                    }
+                  </span>
+                </div>
+              }
+
+              <!-- Cuisine -->
+              @if (kitchen()) {
+                <div class="detail-item">
+                  <div class="detail-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/>
+                      <path d="M7 2v20"/>
+                      <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>
+                    </svg>
+                  </div>
+                  <span class="detail-text">Cuisine {{ kitchen() | lowercase }}</span>
+                </div>
+              }
+
+              <!-- Chauffage -->
+              @if (chauffageEnergie()) {
+                <div class="detail-item">
+                  <div class="detail-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 2c1 3 2.5 3.5 3.5 4.5A5 5 0 0 1 17 10a5 5 0 1 1-10 0c0-.3 0-.6.1-.9a4 4 0 0 0 2.9-2.1c.3-.5.5-1 .7-1.5"/>
+                      <path d="M12 18v4"/>
+                      <path d="M8 22h8"/>
+                    </svg>
+                  </div>
+                  <span class="detail-text">{{ chauffageEnergie() | titlecase }} / {{ typeChauffage() || 'individuel' }}</span>
+                </div>
+              }
+
+              <!-- Eau chaude -->
+              @if (eauChaude()) {
+                <div class="detail-item">
+                  <div class="detail-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 2v6"/>
+                      <path d="M12 22a8 8 0 0 0 8-8c0-4.314-3.5-7.5-8-12-4.5 4.5-8 7.686-8 12a8 8 0 0 0 8 8z"/>
+                    </svg>
+                  </div>
+                  <span class="detail-text">Eau chaude {{ eauChaude() | lowercase }}{{ typeEauChaude() ? ' / ' + typeEauChaude() : '' }}</span>
+                </div>
+              }
+
+              <!-- Étage -->
+              @if (etage()) {
+                <div class="detail-item">
+                  <div class="detail-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="4" y="2" width="16" height="20" rx="2"/>
+                      <path d="M9 22v-4h6v4"/>
+                      <path d="M8 6h.01"/>
+                      <path d="M16 6h.01"/>
+                      <path d="M12 6h.01"/>
+                      <path d="M12 10h.01"/>
+                      <path d="M12 14h.01"/>
+                      <path d="M16 10h.01"/>
+                      <path d="M16 14h.01"/>
+                      <path d="M8 10h.01"/>
+                      <path d="M8 14h.01"/>
+                    </svg>
+                  </div>
+                  <span class="detail-text">Étage du bien : {{ etage() }}{{ nbEtages() ? ' / ' + nbEtages() : '' }}</span>
+                </div>
+              }
+
+              <!-- Type de vendeur -->
+              <div class="detail-item">
+                <div class="detail-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </div>
+                <span class="detail-text">{{ ann.is_professional ? 'Vendu par un professionnel' : 'Vendu par un particulier' }}</span>
+              </div>
+
+              <!-- Copropriété -->
+              @if (copropriete()) {
+                <div class="detail-item">
+                  <div class="detail-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="4" y="2" width="16" height="20" rx="2"/>
+                      <path d="M9 22v-4h6v4"/>
+                      <path d="M8 6h.01"/>
+                      <path d="M16 6h.01"/>
+                      <path d="M12 6h.01"/>
+                      <path d="M12 10h.01"/>
+                      <path d="M12 14h.01"/>
+                      <path d="M16 10h.01"/>
+                      <path d="M16 14h.01"/>
+                      <path d="M8 10h.01"/>
+                      <path d="M8 14h.01"/>
+                    </svg>
+                  </div>
+                  <span class="detail-text">Copropriété{{ alurNbLots() ? ' de ' + alurNbLots() + ' lots' : '' }}</span>
+                </div>
+              }
+
+              <!-- Charges copropriété -->
+              @if (chargesCopropriete()) {
+                <div class="detail-item highlight">
+                  <div class="detail-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="16" y1="13" x2="8" y2="13"/>
+                      <line x1="16" y1="17" x2="8" y2="17"/>
+                    </svg>
+                  </div>
+                  <span class="detail-text">{{ chargesCopropriete() | number:'1.0-0' }} €/mois de charges</span>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Description -->
+          @if (description()) {
+            <div class="card">
+              <h2 class="card-title">Description</h2>
+              <p class="description-text">{{ description() }}</p>
+            </div>
+          }
+
+          <!-- DPE / GES -->
+          @if (ann.dpe; as dpe) {
+            @if (dpe.is_diagnostic && dpe.letter_dpe) {
+              <div class="card">
+                <h2 class="card-title">Diagnostic énergétique</h2>
+                <div class="dpe-display">
+                  <div class="dpe-item">
+                    <div class="dpe-header">
+                      <span class="dpe-title">Consommation énergétique</span>
+                      <span class="dpe-subtitle">DPE</span>
+                    </div>
+                    <div class="dpe-scale">
+                      @for (letter of ['A', 'B', 'C', 'D', 'E', 'F', 'G']; track letter) {
+                        <div class="dpe-bar dpe-{{ letter | lowercase }}" [class.active]="dpe.letter_dpe === letter">
+                          <span class="dpe-letter">{{ letter }}</span>
+                          @if (dpe.letter_dpe === letter) {
+                            <span class="dpe-arrow">
+                              <span class="dpe-number">{{ dpe.number_dpe }}</span>
+                            </span>
+                          }
+                        </div>
+                      }
+                    </div>
+                    <span class="dpe-unit">kWh/m²/an</span>
+                  </div>
+
+                  @if (dpe.letter_ges) {
+                    <div class="dpe-item">
+                      <div class="dpe-header">
+                        <span class="dpe-title">Émissions de GES</span>
+                        <span class="dpe-subtitle">GES</span>
+                      </div>
+                      <div class="ges-scale">
+                        @for (letter of ['A', 'B', 'C', 'D', 'E', 'F', 'G']; track letter) {
+                          <div class="ges-bar ges-{{ letter | lowercase }}" [class.active]="dpe.letter_ges === letter">
+                            <span class="ges-letter">{{ letter }}</span>
+                            @if (dpe.letter_ges === letter) {
+                              <span class="ges-arrow">
+                                <span class="ges-number">{{ dpe.number_ges }}</span>
+                              </span>
+                            }
+                          </div>
+                        }
+                      </div>
+                      <span class="dpe-unit">kgCO₂/m²/an</span>
+                    </div>
+                  }
+                </div>
+
+                @if (dpe.min_price && dpe.max_price) {
+                  <div class="energy-cost">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                    <div class="energy-cost-info">
+                      <span class="energy-cost-label">Coût énergétique estimé</span>
+                      <span class="energy-cost-value">{{ dpe.min_price | number:'1.0-0' }} € à {{ dpe.max_price | number:'1.0-0' }} € / an</span>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          }
+
+          <!-- Localisation -->
+          <div class="card location-card">
+            <h2 class="card-title">Localisation</h2>
+            <div class="location-display">
+              @if (ann.latitude && ann.longitude) {
+                <div class="map-wrapper">
+                  <div #mapContainer class="map-container"></div>
+                  <div class="map-info">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                      <circle cx="12" cy="10" r="3"/>
+                    </svg>
+                    <span>{{ ann.zip_code }} {{ ann.city }}</span>
+                    @if (ann.is_exact_location) {
+                      <span class="exact-badge">Adresse exacte</span>
+                    } @else {
+                      <span class="approx-badge">Position approximative</span>
+                    }
+                  </div>
+                </div>
+              } @else {
+                <div class="location-map-placeholder">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                  <span>{{ ann.zip_code }} {{ ann.city }}</span>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Date publication -->
+          @if (ann.date) {
+            <div class="publication-info">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <span>Annonce publiée le {{ ann.date | date:'dd MMMM yyyy' }}</span>
+            </div>
+          }
+        </div>
+
+        <!-- Right column - Price & Contact -->
+        <div class="sidebar-column">
+          <div class="sticky-sidebar">
+            <!-- Price card -->
+            <div class="price-card">
+              <div class="price-main">
+                <span class="price-amount">{{ ann.price | number:'1.0-0' }}</span>
+                <span class="price-currency">€</span>
+              </div>
+              @if (ann.contract_type === 'location') {
+                <span class="price-period">/ mois</span>
+              }
+              @if (ann.square_meter && ann.square_meter > 0) {
+                <div class="price-per-sqm">
+                  {{ ann.price / ann.square_meter | number:'1.0-0' }} €/m²
+                </div>
+              }
+
+              @if (prixHorsHonoraires() && prixHorsHonoraires() !== ann.price) {
+                <div class="price-detail">
+                  <span>Prix hors honoraires</span>
+                  <strong>{{ prixHorsHonoraires() | number:'1.0-0' }} €</strong>
+                </div>
+              }
+              @if (chargesCopropriete()) {
+                <div class="price-detail">
+                  <span>Charges</span>
+                  <strong>{{ chargesCopropriete() | number:'1.0-0' }} €/mois</strong>
+                </div>
+              }
+              @if (ann.is_agency_cost) {
+                <div class="price-note">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                  </svg>
+                  Honoraires charge vendeur
+                </div>
+              }
+
+              <div class="price-actions">
+                <a href="tel:+33320304050" class="btn-primary">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                  03 20 30 40 50
+                </a>
+                <button type="button" class="btn-secondary" (click)="toggleContactForm()">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                    <polyline points="22,6 12,13 2,6"/>
+                  </svg>
+                  Envoyer un message
+                </button>
+              </div>
+            </div>
+
+            <!-- Agency card -->
+            <div class="agency-card">
+              <div class="agency-header">
+                <div class="agency-logo">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                  </svg>
+                </div>
+                <div class="agency-info">
+                  <span class="agency-name">Sergic</span>
+                  <span class="agency-type">Agence immobilière</span>
+                </div>
+              </div>
+              <div class="agency-details">
+                <div class="agency-detail-item">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                  <span>40 rue de la Plaine, 59000 Lille</span>
+                </div>
+                <a href="https://www.sergic.com" target="_blank" rel="noopener" class="agency-link">
+                  Voir toutes nos annonces
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                    <polyline points="15 3 21 3 21 9"/>
+                    <line x1="10" y1="14" x2="21" y2="3"/>
+                  </svg>
+                </a>
+              </div>
+            </div>
+
+            <!-- Share buttons -->
+            <div class="share-card">
+              <span class="share-label">Partager cette annonce</span>
+              <div class="share-buttons">
+                <button type="button" class="share-btn whatsapp" (click)="shareWhatsApp()" title="Partager sur WhatsApp">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  </svg>
+                </button>
+                <button type="button" class="share-btn email" (click)="shareEmail()" title="Partager par email">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                    <polyline points="22,6 12,13 2,6"/>
+                  </svg>
+                </button>
+                <button type="button" class="share-btn copy" (click)="copyLink()" title="Copier le lien">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                </button>
+              </div>
+              @if (linkCopied()) {
+                <span class="copy-feedback">Lien copié !</span>
+              }
+            </div>
+
+            <!-- Loan simulator (for sales only) -->
+            @if (ann.contract_type === 'achat') {
+              <div class="loan-card">
+                <h3 class="loan-title">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/>
+                    <path d="M12 8v8"/>
+                    <path d="M8 12h8"/>
+                  </svg>
+                  Simuler mon prêt
+                </h3>
+                <div class="loan-result">
+                  <span class="loan-label">Mensualité estimée</span>
+                  <span class="loan-amount">{{ getMonthlyPayment(ann.price) | number:'1.0-0' }} €/mois</span>
+                  <span class="loan-info">Sur 20 ans à 3.5%</span>
+                </div>
+                <a href="https://www.sergic.com/simulation-pret" target="_blank" rel="noopener" class="loan-link">
+                  Simuler un autre montant
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                </a>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</main>
+
+<footer class="footer">
+  <div class="footer-content">
+    <p>&copy; 2025 Sergic - Tous droits réservés</p>
+  </div>
+</footer>

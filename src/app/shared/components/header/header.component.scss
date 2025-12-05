@@ -1,0 +1,119 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.header-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-6);
+  gap: var(--space-8);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+
+  img {
+    height: 36px;
+    width: auto;
+  }
+}
+
+.nav {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+
+  @media (max-width: 768px) {
+    display: none;
+  }
+}
+
+.nav-list {
+  display: flex;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.nav-link {
+  display: block;
+  padding: var(--space-3) var(--space-5);
+  font-weight: 500;
+  font-size: 0.9375rem;
+  color: var(--gray-600);
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+
+  &:hover {
+    color: var(--sergic-navy);
+    background: var(--gray-100);
+  }
+
+  &.active {
+    color: var(--white);
+    background: var(--sergic-navy);
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: var(--gray-100);
+    color: var(--sergic-cyan);
+  }
+}
+
+.btn-primary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--sergic-cyan);
+  color: var(--white);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: var(--sergic-cyan-dark);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+
+  @media (max-width: 640px) {
+    span {
+      display: none;
+    }
+    padding: var(--space-3);
+  }
+}
