@@ -95,6 +95,17 @@ body {
   color: var(--gray-800);
   line-height: 1.6;
   min-height: 100vh;
+  // Fixed header offset (~60px header + safe area)
+  padding-top: calc(60px + env(safe-area-inset-top));
+  // iOS Safe Area - only sides, header handles top
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  // Prevent horizontal scroll
+  overflow-x: hidden;
+}
+
+html {
+  overflow-x: hidden;
 }
 
 // Typography

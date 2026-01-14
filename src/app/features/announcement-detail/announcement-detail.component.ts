@@ -1,21 +1,29 @@
 import { Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy, ElementRef, viewChild, effect } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DecimalPipe, TitleCasePipe, DatePipe, LowerCasePipe } from '@angular/common';
+import { Location, DecimalPipe, LowerCasePipe } from '@angular/common';
 import { AnnouncementService } from '../../core/services/announcement.service';
+import { FavoritesService } from '../../core/services/favorites.service';
+import { OfflineCacheService } from '../../core/services/offline-cache.service';
 import { AnnouncementDetail } from '../../core/models/announcement.model';
 import { HeaderComponent } from '../../shared/components/header/header.component';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Share } from '@capacitor/share';
 import * as L from 'leaflet';
+import { getAgencyBySiret } from '../../core/data/agencies.data';
 
 @Component({
   selector: 'app-announcement-detail',
-  imports: [DecimalPipe, TitleCasePipe, DatePipe, LowerCasePipe, RouterLink, HeaderComponent],
+  imports: [DecimalPipe, LowerCasePipe, RouterLink, HeaderComponent],
   templateUrl: './announcement-detail.component.html',
   styleUrl: './announcement-detail.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AnnouncementDetailComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
+  private readonly location = inject(Location);
   private readonly announcementService = inject(AnnouncementService);
+  protected readonly favoritesService = inject(FavoritesService);
+  private readonly offlineCache = inject(OfflineCacheService);
 
   protected readonly thumbnailsContainer = viewChild<ElementRef<HTMLDivElement>>('thumbnailsContainer');
   protected readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('mapContainer');
@@ -26,9 +34,18 @@ export class AnnouncementDetailComponent implements OnInit, OnDestroy {
   protected readonly currentImageIndex = signal(0);
   protected readonly linkCopied = signal(false);
   protected readonly showContactForm = signal(false);
+  protected readonly descriptionExpanded = signal(false);
+  protected readonly showDpeInfo = signal(false);
+  protected readonly showGesInfo = signal(false);
 
   private map: L.Map | null = null;
   private mapInitialized = false;
+
+  // Swipe gesture
+  private swipeStartX = 0;
+  private swipeEndX = 0;
+  private swiping = false;
+  protected swipeOffset = signal(0); // Real-time drag offset in pixels
 
   constructor() {
     // Watch for announcement changes to initialize map
@@ -146,6 +163,66 @@ export class AnnouncementDetailComponent implements OnInit, OnDestroy {
     return val ? parseFloat(val) : null;
   });
 
+  // Infos spécifiques location
+  protected readonly loyer = computed(() => {
+    const val = this.getExtra('loyer');
+    return val ? parseFloat(val) : null;
+  });
+  protected readonly charges = computed(() => {
+    const val = this.getExtra('charges');
+    return val ? parseFloat(val) : null;
+  });
+  protected readonly loyerMensuelCC = computed(() => {
+    const val = this.getExtra('loyer_mensuel_cc');
+    return val ? parseFloat(val) : null;
+  });
+  protected readonly honorairesEtatDesLieux = computed(() => {
+    const val = this.getExtra('honoraires_etat_des_lieux');
+    return val ? parseFloat(val) : null;
+  });
+  protected readonly disponibleImmediatement = computed(() => this.getExtra('disponible_immediatement') === 'true');
+  protected readonly dateDisponibilite = computed(() => this.getExtra('date_disponibilite'));
+  protected readonly avecStationnement = computed(() => this.getExtra('avec_stationnement') === 'true');
+  protected readonly surfaceBalcon = computed(() => {
+    const val = this.getExtra('surface_balcon');
+    return val ? parseFloat(val) : null;
+  });
+  protected readonly surfaceTerrasse = computed(() => {
+    const val = this.getExtra('terrasse_surface');
+    return val ? parseFloat(val) : null;
+  });
+  protected readonly surfaceJardin = computed(() => {
+    const val = this.getExtra('surface_jardin');
+    return val ? parseFloat(val) : null;
+  });
+
+  // Infos agence via SIRET
+  protected readonly agencyInfo = computed(() => {
+    const ann = this.announcement();
+    return getAgencyBySiret(ann?.agency?.siret);
+  });
+
+  // Pour les locations : déterminer si les charges sont comprises
+  protected readonly chargesLocation = computed(() => {
+    const ann = this.announcement();
+    if (!ann || ann.contract_type !== 'location') return null;
+
+    const charges = this.charges();
+    const loyer = this.loyer();
+
+    // Si on a loyer et charges, on peut calculer
+    if (loyer && charges) {
+      // Le prix affiché est le loyer CC (charges comprises)
+      return {
+        included: true,
+        amount: charges,
+        loyerHC: loyer
+      };
+    }
+
+    return null;
+  });
+
   ngOnInit(): void {
     const slug = this.route.snapshot.paramMap.get('slug');
     if (slug) {
@@ -181,11 +258,95 @@ export class AnnouncementDetailComponent implements OnInit, OnDestroy {
   }
 
   protected getImageUrl(picture: string): string {
-    return `https://ad-sergic-middle-prod.itroom.fr/${picture}`;
+    return this.offlineCache.getImageUrl(picture);
   }
 
   protected getContractLabel(type: string): string {
     return type === 'achat' ? 'À vendre' : 'À louer';
+  }
+
+  protected getRelativeDate(dateStr: string): string {
+    const announcementDate = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - announcementDate.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return "aujourd'hui";
+    if (diffDays === 1) return 'hier';
+    if (diffDays < 7) return `il y a ${diffDays} jours`;
+    if (diffDays < 14) return 'il y a 1 semaine';
+    if (diffDays < 30) return `il y a ${Math.floor(diffDays / 7)} semaines`;
+    if (diffDays < 60) return 'il y a 1 mois';
+    return `il y a ${Math.floor(diffDays / 30)} mois`;
+  }
+
+  protected async shareNative(): Promise<void> {
+    const ann = this.announcement();
+    if (!ann) return;
+
+    const webUrl = this.getWebUrl();
+    try {
+      await Share.share({
+        title: ann.title || ann.label_type,
+        text: `${ann.title || ann.label_type} - ${ann.price.toLocaleString('fr-FR')} € - ${ann.city}`,
+        url: webUrl,
+        dialogTitle: 'Partager cette annonce'
+      });
+    } catch {
+      // Fallback si Share n'est pas disponible (navigateur)
+      this.copyLink();
+    }
+  }
+
+  // Swipe handlers for gallery - fluid drag effect
+  protected onSwipeStart(event: TouchEvent): void {
+    this.swipeStartX = event.touches[0].clientX;
+    this.swipeEndX = this.swipeStartX;
+    this.swiping = true;
+    this.swipeOffset.set(0);
+  }
+
+  protected onSwipeMove(event: TouchEvent): void {
+    if (!this.swiping) return;
+
+    this.swipeEndX = event.touches[0].clientX;
+    const diff = this.swipeStartX - this.swipeEndX;
+
+    // Apply drag offset for fluid effect
+    // Reduce movement at boundaries
+    const pics = this.pictures();
+    const currentIdx = this.currentImageIndex();
+    const isAtStart = currentIdx === 0 && diff < 0;
+    const isAtEnd = currentIdx === pics.length - 1 && diff > 0;
+
+    if (isAtStart || isAtEnd) {
+      // Rubber band effect at edges
+      this.swipeOffset.set(-diff * 0.3);
+    } else {
+      this.swipeOffset.set(-diff);
+    }
+
+    if (Math.abs(diff) > 10) {
+      event.preventDefault();
+    }
+  }
+
+  protected onSwipeEnd(): void {
+    if (!this.swiping) return;
+
+    const diff = this.swipeStartX - this.swipeEndX;
+    const threshold = 50;
+
+    if (Math.abs(diff) > threshold) {
+      if (diff > 0) {
+        this.nextImage();
+      } else {
+        this.prevImage();
+      }
+    }
+
+    this.swiping = false;
+    this.swipeOffset.set(0);
   }
 
   protected getDpeClass(letter: string | null | undefined): string {
@@ -245,12 +406,38 @@ export class AnnouncementDetailComponent implements OnInit, OnDestroy {
     this.showContactForm.update(v => !v);
   }
 
+  // Description toggle
+  protected toggleDescription(): void {
+    this.descriptionExpanded.update(v => !v);
+  }
+
+  // DPE/GES info toggles
+  protected toggleDpeInfo(): void {
+    this.showDpeInfo.update(v => !v);
+    if (this.showDpeInfo()) this.showGesInfo.set(false);
+  }
+
+  protected toggleGesInfo(): void {
+    this.showGesInfo.update(v => !v);
+    if (this.showGesInfo()) this.showDpeInfo.set(false);
+  }
+
+  // Generate sergic.com URL for sharing
+  private getWebUrl(): string {
+    const ann = this.announcement();
+    if (!ann) return 'https://www.sergic.com';
+
+    // Use the slug directly - it already contains the correct format
+    // Example slug: achat-2-pieces-38-33310-lormont-ouelg1033
+    return `https://www.sergic.com/annonces-immobilieres/${ann.slug}`;
+  }
+
   // Share functions
   protected shareWhatsApp(): void {
     const ann = this.announcement();
     if (!ann) return;
     const text = `Découvrez cette annonce : ${ann.title || ann.label_type} - ${ann.price.toLocaleString('fr-FR')} € - ${ann.city}`;
-    const url = window.location.href;
+    const url = this.getWebUrl();
     window.open(`https://wa.me/?text=${encodeURIComponent(text + '\n' + url)}`, '_blank');
   }
 
@@ -258,12 +445,13 @@ export class AnnouncementDetailComponent implements OnInit, OnDestroy {
     const ann = this.announcement();
     if (!ann) return;
     const subject = `Annonce immobilière : ${ann.title || ann.label_type}`;
-    const body = `Bonjour,\n\nJe vous partage cette annonce immobilière :\n\n${ann.title || ann.label_type}\nPrix : ${ann.price.toLocaleString('fr-FR')} €\nVille : ${ann.city}\n\nLien : ${window.location.href}`;
+    const body = `Bonjour,\n\nJe vous partage cette annonce immobilière :\n\n${ann.title || ann.label_type}\nPrix : ${ann.price.toLocaleString('fr-FR')} €\nVille : ${ann.city}\n\nLien : ${this.getWebUrl()}`;
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
 
   protected copyLink(): void {
-    navigator.clipboard.writeText(window.location.href).then(() => {
+    const url = this.getWebUrl();
+    navigator.clipboard.writeText(url).then(() => {
       this.linkCopied.set(true);
       setTimeout(() => this.linkCopied.set(false), 2000);
     });
@@ -279,5 +467,39 @@ export class AnnouncementDetailComponent implements OnInit, OnDestroy {
 
     const x = Math.pow(1 + rate, months);
     return (principal * rate * x) / (x - 1);
+  }
+
+  // Favorites & Compare methods
+  protected async toggleFavorite(): Promise<void> {
+    const ann = this.announcement();
+    if (!ann) return;
+
+    // AnnouncementDetail extends Announcement, so we can pass it directly
+    this.favoritesService.toggleFavorite(ann);
+    await this.triggerHaptic();
+  }
+
+  protected async toggleCompare(): Promise<void> {
+    const ann = this.announcement();
+    if (!ann) return;
+
+    const wasInList = this.favoritesService.isInCompare(ann.reference);
+    const result = this.favoritesService.toggleCompare(ann);
+    if (!result && !wasInList) {
+      alert('Vous pouvez comparer jusqu\'à 3 biens maximum');
+    }
+    await this.triggerHaptic();
+  }
+
+  private async triggerHaptic(): Promise<void> {
+    try {
+      await Haptics.impact({ style: ImpactStyle.Light });
+    } catch {
+      // Haptics not available (browser)
+    }
+  }
+
+  protected goBack(): void {
+    this.location.back();
   }
 }

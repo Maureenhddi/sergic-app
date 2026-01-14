@@ -1,0 +1,37 @@
+<app-header />
+
+<main class="favorites-page">
+  <div class="container">
+    <div class="page-header">
+      <h1 class="page-title">Mes biens</h1>
+    </div>
+
+    @if (favoritesService.favorites().length === 0) {
+      <div class="empty-state">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+        <h2>Aucun favori</h2>
+        <p>Ajoutez des biens à vos favoris pour les retrouver facilement</p>
+        <a routerLink="/annonces" class="btn-primary">
+          Voir les annonces
+        </a>
+      </div>
+    } @else {
+      <div class="list-header">
+        <span class="count">{{ favoritesService.favoritesCount() }} bien(s) sauvegardé(s)</span>
+        <button type="button" class="clear-btn" (click)="clearFavorites()">
+          Tout supprimer
+        </button>
+      </div>
+
+      <div class="cards-grid">
+        @for (ann of favoritesService.favorites(); track ann.reference) {
+          <app-announcement-card [announcement]="ann" />
+        }
+      </div>
+    }
+  </div>
+</main>
+
+<app-bottom-nav />

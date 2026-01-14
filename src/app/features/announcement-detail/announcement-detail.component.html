@@ -1,5 +1,41 @@
 <app-header />
 
+<!-- Mobile sticky header -->
+@if (!loading() && !error() && announcement(); as ann) {
+  <div class="mobile-sticky-header mobile-only">
+    <button type="button" class="mobile-back-btn" (click)="goBack()">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 12H5M12 19l-7-7 7-7"/>
+      </svg>
+    </button>
+    <div class="mobile-header-title">
+      <span class="mobile-title-text">{{ ann.title || ann.label_type }}</span>
+      <span class="mobile-title-price">{{ ann.price | number:'1.0-0' }} €</span>
+    </div>
+    <div class="mobile-header-actions">
+      <button
+        type="button"
+        class="mobile-action-btn"
+        [class.active]="favoritesService.isFavorite(ann.reference)"
+        (click)="toggleFavorite()"
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" [attr.fill]="favoritesService.isFavorite(ann.reference) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>
+      </button>
+      <button type="button" class="mobile-action-btn" (click)="shareNative()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="18" cy="5" r="3"/>
+          <circle cx="6" cy="12" r="3"/>
+          <circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+}
+
 <main class="detail-page">
   @if (loading()) {
     <div class="loading-state">
@@ -19,66 +55,111 @@
       </div>
       <h3>Une erreur est survenue</h3>
       <p>{{ error() }}</p>
-      <a routerLink="/annonces" class="btn-back">Retour aux annonces</a>
+      <button type="button" class="btn-back" (click)="goBack()">Retour aux annonces</button>
     </div>
   }
 
   @if (!loading() && !error() && announcement(); as ann) {
-    <!-- Breadcrumb -->
-    <nav class="breadcrumb" aria-label="Fil d'ariane">
-      <a routerLink="/annonces">Annonces</a>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M9 18l6-6-6-6"/>
-      </svg>
-      <span>{{ ann.city }}</span>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M9 18l6-6-6-6"/>
-      </svg>
-      <span class="current">{{ ann.label_type }}</span>
-    </nav>
+    <!-- Back button + Breadcrumb -->
+    <div class="nav-breadcrumb">
+      <button type="button" class="back-btn" (click)="goBack()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        <span class="back-text">Retour</span>
+      </button>
+      <nav class="breadcrumb" aria-label="Fil d'ariane">
+        <a routerLink="/annonces">Annonces</a>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+        <span>{{ ann.city }}</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+        <span class="current">{{ ann.label_type }}</span>
+      </nav>
+    </div>
 
-    <!-- Hero Gallery -->
+    <!-- Hero Gallery - Modern Slider -->
     <section class="hero-gallery">
       @if (pictures().length > 0) {
         <div class="gallery-container">
-          <div class="main-image-wrapper">
-            <img
-              [src]="getImageUrl(pictures()[currentImageIndex()])"
-              [alt]="ann.title || ann.label_type"
-              class="hero-image"
-            />
+          <div class="slider-wrapper"
+            (touchstart)="onSwipeStart($event)"
+            (touchmove)="onSwipeMove($event)"
+            (touchend)="onSwipeEnd()">
 
-            <!-- Overlay gradient -->
-            <div class="image-overlay"></div>
+            <!-- Slider track with all images -->
+            <div class="slider-track"
+              [class.dragging]="swipeOffset() !== 0"
+              [style.transform]="'translateX(calc(' + (-currentImageIndex() * 100) + '% + ' + swipeOffset() + 'px))'">
+              @for (pic of pictures(); track pic; let i = $index) {
+                <div class="slider-slide">
+                  <img
+                    [src]="getImageUrl(pic)"
+                    [alt]="(ann.title || ann.label_type) + ' - Photo ' + (i + 1)"
+                    class="slider-image"
+                    loading="lazy"
+                  />
+                </div>
+              }
+            </div>
 
-            <!-- Navigation -->
+            <!-- Gradient overlays -->
+            <div class="slider-overlay-top"></div>
+            <div class="slider-overlay-bottom"></div>
+
+            <!-- Navigation arrows -->
             @if (pictures().length > 1) {
-              <button type="button" class="nav-btn prev" (click)="prevImage()">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <button type="button" class="slider-arrow slider-arrow-prev" (click)="prevImage()" aria-label="Photo précédente">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M15 18l-6-6 6-6"/>
                 </svg>
               </button>
-              <button type="button" class="nav-btn next" (click)="nextImage()">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <button type="button" class="slider-arrow slider-arrow-next" (click)="nextImage()" aria-label="Photo suivante">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M9 18l6-6-6-6"/>
                 </svg>
               </button>
             }
 
-            <!-- Photo count badge -->
-            <div class="photo-count">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <!-- Photo counter (top right) -->
+            <div class="slider-counter">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="18" height="18" rx="2"/>
                 <circle cx="8.5" cy="8.5" r="1.5"/>
                 <path d="M21 15l-5-5L5 21"/>
               </svg>
-              <span>{{ currentImageIndex() + 1 }} / {{ pictures().length }}</span>
+              <span>{{ currentImageIndex() + 1 }}/{{ pictures().length }}</span>
             </div>
+
+            <!-- Pagination dots -->
+            @if (pictures().length > 1 && pictures().length <= 10) {
+              <div class="slider-dots">
+                @for (pic of pictures(); track pic; let i = $index) {
+                  <button
+                    type="button"
+                    class="slider-dot"
+                    [class.active]="i === currentImageIndex()"
+                    (click)="selectImage(i)"
+                    [attr.aria-label]="'Voir photo ' + (i + 1)"
+                  ></button>
+                }
+              </div>
+            }
+
+            <!-- Progress bar for many photos -->
+            @if (pictures().length > 10) {
+              <div class="slider-progress">
+                <div class="slider-progress-bar" [style.width.%]="((currentImageIndex() + 1) / pictures().length) * 100"></div>
+              </div>
+            }
           </div>
 
-          <!-- Thumbnails strip -->
+          <!-- Thumbnails strip (desktop) -->
           @if (pictures().length > 1) {
-            <div class="thumbnails-strip" #thumbnailsContainer>
+            <div class="thumbnails-strip desktop-only" #thumbnailsContainer>
               @for (pic of pictures(); track pic; let i = $index) {
                 <button
                   type="button"
@@ -86,7 +167,7 @@
                   [class.active]="i === currentImageIndex()"
                   (click)="selectImage(i)"
                 >
-                  <img [src]="getImageUrl(pic)" [alt]="'Photo ' + (i + 1)" />
+                  <img [src]="getImageUrl(pic)" [alt]="'Photo ' + (i + 1)" loading="lazy" />
                 </button>
               }
             </div>
@@ -94,13 +175,15 @@
         </div>
       } @else if (ann.picture) {
         <div class="gallery-container">
-          <div class="main-image-wrapper single">
-            <img [src]="getImageUrl(ann.picture)" [alt]="ann.title || ann.label_type" class="hero-image" />
+          <div class="slider-wrapper single">
+            <div class="slider-image-container">
+              <img [src]="getImageUrl(ann.picture)" [alt]="ann.title || ann.label_type" class="slider-image" />
+            </div>
           </div>
         </div>
       } @else {
         <div class="no-photo">
-          <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
             <circle cx="8.5" cy="8.5" r="1.5"/>
             <path d="M21 15l-5-5L5 21"/>
@@ -109,19 +192,6 @@
         </div>
       }
 
-      <!-- Back button floating -->
-      <a routerLink="/annonces" class="back-floating">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M19 12H5M12 19l-7-7 7-7"/>
-        </svg>
-      </a>
-
-      <!-- Favorite button floating -->
-      <button type="button" class="fav-floating">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-        </svg>
-      </button>
     </section>
 
     <!-- Main content -->
@@ -129,48 +199,138 @@
       <div class="content-grid">
         <!-- Left column - Details -->
         <div class="details-column">
-          <!-- Header card -->
+          <!-- 1. HEADER CARD (Titre + Prix + Chiffres clés) -->
           <div class="card header-card">
-            <div class="badge-row">
+            <!-- Badge + Titre -->
+            <div class="header-top-row">
               <span class="contract-badge" [class.rental]="ann.contract_type === 'location'">
                 {{ getContractLabel(ann.contract_type) }}
               </span>
-              <span class="property-type">{{ ann.place_type | titlecase }}</span>
+              <span class="ref-badge">Réf. {{ ann.reference }}</span>
             </div>
+
             <h1 class="property-title">{{ ann.title || (ann.label_type + ' à ' + ann.city) }}</h1>
+
             <div class="location-row">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
                 <circle cx="12" cy="10" r="3"/>
               </svg>
               <span>{{ ann.zip_code }} {{ ann.city }}</span>
             </div>
-            <div class="ref-row">Réf. {{ ann.reference }}</div>
-          </div>
 
-          <!-- Caractéristiques combinées -->
-          <div class="card characteristics-card">
+            <!-- Prix -->
+            <div class="price-block">
+              <div class="price-main">
+                <span class="price-amount">{{ ann.price | number:'1.0-0' }}</span>
+                <span class="price-currency">€</span>
+                @if (ann.contract_type === 'location') {
+                  <span class="price-period">/mois</span>
+                }
+              </div>
+              <div class="price-details">
+                @if (chargesLocation(); as charges) {
+                  <span class="charges-badge" [class.included]="charges.included">
+                    @if (charges.included) {
+                      dont {{ charges.amount | number:'1.0-0' }} € de charges
+                    } @else {
+                      + {{ charges.amount | number:'1.0-0' }} € de charges
+                    }
+                  </span>
+                }
+                @if (ann.square_meter && ann.square_meter > 0) {
+                  <span class="price-per-sqm">{{ ann.price / ann.square_meter | number:'1.0-0' }} €/m²</span>
+                }
+              </div>
+            </div>
+
             <!-- Chiffres clés -->
-            <div class="key-stats">
-              <div class="stat-item main">
-                <span class="stat-value">{{ ann.square_meter }}</span>
-                <span class="stat-unit">m²</span>
+            <div class="key-figures">
+              <div class="figure-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                </svg>
+                <span class="figure-value">{{ ann.square_meter }} m²</span>
               </div>
               @if (nbPieces()) {
-                <div class="stat-item">
-                  <span class="stat-value">{{ nbPieces() }}</span>
-                  <span class="stat-label">pièces</span>
+                <div class="figure-item">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                  </svg>
+                  <span class="figure-value">{{ nbPieces() }} pièces</span>
                 </div>
               }
               @if (ann.number_of_bedrooms) {
-                <div class="stat-item">
-                  <span class="stat-value">{{ ann.number_of_bedrooms }}</span>
-                  <span class="stat-label">chambre{{ ann.number_of_bedrooms > 1 ? 's' : '' }}</span>
+                <div class="figure-item">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M2 4v16"/>
+                    <path d="M2 8h18a2 2 0 0 1 2 2v10"/>
+                    <path d="M2 17h20"/>
+                    <path d="M6 8v9"/>
+                  </svg>
+                  <span class="figure-value">{{ ann.number_of_bedrooms }} ch.</span>
                 </div>
               }
             </div>
+          </div>
 
-            <!-- Détails avec icônes -->
+          <!-- 3. DISPONIBILITÉ (Location) ou FRAIS (Achat) -->
+          @if (ann.contract_type === 'location') {
+            @if (disponibleImmediatement() || dateDisponibilite()) {
+              <div class="card availability-card">
+                <div class="availability-content">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                    <path d="M9 16l2 2 4-4"/>
+                  </svg>
+                  <div class="availability-info">
+                    <span class="availability-label">Disponibilité</span>
+                    <span class="availability-value">
+                      @if (disponibleImmediatement()) {
+                        Disponible immédiatement
+                      } @else {
+                        À partir du {{ dateDisponibilite() }}
+                      }
+                    </span>
+                  </div>
+                </div>
+              </div>
+            }
+          }
+
+          <!-- 4. DESCRIPTION -->
+          @if (description()) {
+            <div class="card description-card">
+              <h2 class="card-title">Description</h2>
+              <div class="description-wrapper" [class.expanded]="descriptionExpanded()">
+                <p class="description-text">{{ description() }}</p>
+                @if (!descriptionExpanded()) {
+                  <div class="description-fade"></div>
+                }
+              </div>
+              <button type="button" class="description-toggle" (click)="toggleDescription()">
+                @if (descriptionExpanded()) {
+                  <span>Voir moins</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 15l-6-6-6 6"/>
+                  </svg>
+                } @else {
+                  <span>Voir plus</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 9l6 6 6-6"/>
+                  </svg>
+                }
+              </button>
+            </div>
+          }
+
+          <!-- 5. CARACTÉRISTIQUES TECHNIQUES -->
+          <div class="card characteristics-card">
+            <h2 class="card-title">Caractéristiques</h2>
             <div class="details-grid">
               <!-- Salle de bains / eau -->
               @if (nbSallesDeBains() || nbSallesEau()) {
@@ -209,7 +369,7 @@
               }
 
               <!-- Chauffage -->
-              @if (chauffageEnergie()) {
+              @if (chauffageEnergie() || typeChauffage()) {
                 <div class="detail-item">
                   <div class="detail-icon">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -218,7 +378,15 @@
                       <path d="M8 22h8"/>
                     </svg>
                   </div>
-                  <span class="detail-text">{{ chauffageEnergie() | titlecase }} / {{ typeChauffage() || 'individuel' }}</span>
+                  <span class="detail-text">
+                    Chauffage
+                    @if (typeChauffage()) {
+                      {{ typeChauffage() }}
+                    }
+                    @if (chauffageEnergie()) {
+                      ({{ chauffageEnergie() }})
+                    }
+                  </span>
                 </div>
               }
 
@@ -257,19 +425,6 @@
                 </div>
               }
 
-              <!-- Type de vendeur -->
-              <div class="detail-item">
-                <div class="detail-icon">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                  </svg>
-                </div>
-                <span class="detail-text">{{ ann.is_professional ? 'Vendu par un professionnel' : 'Vendu par un particulier' }}</span>
-              </div>
-
               <!-- Copropriété -->
               @if (copropriete()) {
                 <div class="detail-item">
@@ -292,96 +447,240 @@
                 </div>
               }
 
-              <!-- Charges copropriété -->
-              @if (chargesCopropriete()) {
-                <div class="detail-item highlight">
-                  <div class="detail-icon">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <polyline points="14 2 14 8 20 8"/>
-                      <line x1="16" y1="13" x2="8" y2="13"/>
-                      <line x1="16" y1="17" x2="8" y2="17"/>
-                    </svg>
-                  </div>
-                  <span class="detail-text">{{ chargesCopropriete() | number:'1.0-0' }} €/mois de charges</span>
+              <!-- Type de vendeur -->
+              <div class="detail-item">
+                <div class="detail-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
                 </div>
-              }
+                <span class="detail-text">{{ ann.is_professional ? 'Vendu par un professionnel' : 'Vendu par un particulier' }}</span>
+              </div>
             </div>
           </div>
 
-          <!-- Description -->
-          @if (description()) {
-            <div class="card">
-              <h2 class="card-title">Description</h2>
-              <p class="description-text">{{ description() }}</p>
-            </div>
-          }
-
-          <!-- DPE / GES -->
-          @if (ann.dpe; as dpe) {
-            @if (dpe.is_diagnostic && dpe.letter_dpe) {
-              <div class="card">
-                <h2 class="card-title">Diagnostic énergétique</h2>
-                <div class="dpe-display">
-                  <div class="dpe-item">
-                    <div class="dpe-header">
-                      <span class="dpe-title">Consommation énergétique</span>
-                      <span class="dpe-subtitle">DPE</span>
+          <!-- 6. FRAIS (Location ou Achat) -->
+          @if (ann.contract_type === 'location') {
+            @if (loyer() || charges() || depotGarantie() || fraisAgence() || honorairesEtatDesLieux() || chargesCopropriete()) {
+              <div class="card fees-card">
+                <h2 class="card-title">Détails financiers</h2>
+                <div class="fees-grid">
+                  @if (loyer()) {
+                    <div class="fee-item">
+                      <span class="fee-label">Loyer hors charges</span>
+                      <span class="fee-value">{{ loyer() | number:'1.0-0' }} €/mois</span>
                     </div>
-                    <div class="dpe-scale">
-                      @for (letter of ['A', 'B', 'C', 'D', 'E', 'F', 'G']; track letter) {
-                        <div class="dpe-bar dpe-{{ letter | lowercase }}" [class.active]="dpe.letter_dpe === letter">
-                          <span class="dpe-letter">{{ letter }}</span>
-                          @if (dpe.letter_dpe === letter) {
-                            <span class="dpe-arrow">
-                              <span class="dpe-number">{{ dpe.number_dpe }}</span>
-                            </span>
-                          }
-                        </div>
-                      }
+                  }
+                  @if (charges()) {
+                    <div class="fee-item">
+                      <span class="fee-label">Charges</span>
+                      <span class="fee-value">{{ charges() | number:'1.0-0' }} €/mois</span>
                     </div>
-                    <span class="dpe-unit">kWh/m²/an</span>
-                  </div>
-
-                  @if (dpe.letter_ges) {
-                    <div class="dpe-item">
-                      <div class="dpe-header">
-                        <span class="dpe-title">Émissions de GES</span>
-                        <span class="dpe-subtitle">GES</span>
-                      </div>
-                      <div class="ges-scale">
-                        @for (letter of ['A', 'B', 'C', 'D', 'E', 'F', 'G']; track letter) {
-                          <div class="ges-bar ges-{{ letter | lowercase }}" [class.active]="dpe.letter_ges === letter">
-                            <span class="ges-letter">{{ letter }}</span>
-                            @if (dpe.letter_ges === letter) {
-                              <span class="ges-arrow">
-                                <span class="ges-number">{{ dpe.number_ges }}</span>
-                              </span>
-                            }
-                          </div>
-                        }
-                      </div>
-                      <span class="dpe-unit">kgCO₂/m²/an</span>
+                  }
+                  @if (chargesCopropriete()) {
+                    <div class="fee-item">
+                      <span class="fee-label">Charges copropriété</span>
+                      <span class="fee-value">{{ chargesCopropriete() | number:'1.0-0' }} €/mois</span>
+                    </div>
+                  }
+                  @if (depotGarantie()) {
+                    <div class="fee-item highlight">
+                      <span class="fee-label">Dépôt de garantie</span>
+                      <span class="fee-value">{{ depotGarantie() | number:'1.0-0' }} €</span>
+                    </div>
+                  }
+                  @if (fraisAgence()) {
+                    <div class="fee-item">
+                      <span class="fee-label">Honoraires location</span>
+                      <span class="fee-value">{{ fraisAgence() | number:'1.0-0' }} €</span>
+                    </div>
+                  }
+                  @if (honorairesEtatDesLieux()) {
+                    <div class="fee-item">
+                      <span class="fee-label">Honoraires état des lieux</span>
+                      <span class="fee-value">{{ honorairesEtatDesLieux() | number:'1.0-0' }} €</span>
                     </div>
                   }
                 </div>
-
-                @if (dpe.min_price && dpe.max_price) {
-                  <div class="energy-cost">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                    </svg>
-                    <div class="energy-cost-info">
-                      <span class="energy-cost-label">Coût énergétique estimé</span>
-                      <span class="energy-cost-value">{{ dpe.min_price | number:'1.0-0' }} € à {{ dpe.max_price | number:'1.0-0' }} € / an</span>
+              </div>
+            }
+          } @else {
+            @if (prixHorsHonoraires() || fraisAgence() || chargesCopropriete()) {
+              <div class="card fees-card">
+                <h2 class="card-title">Détails financiers</h2>
+                <div class="fees-grid">
+                  @if (prixHorsHonoraires()) {
+                    <div class="fee-item">
+                      <span class="fee-label">Prix hors honoraires</span>
+                      <span class="fee-value">{{ prixHorsHonoraires() | number:'1.0-0' }} €</span>
                     </div>
-                  </div>
-                }
+                  }
+                  @if (fraisAgence()) {
+                    <div class="fee-item">
+                      <span class="fee-label">Honoraires agence</span>
+                      <span class="fee-value">{{ fraisAgence() | number:'1.0-0' }} €</span>
+                    </div>
+                  }
+                  @if (chargesCopropriete()) {
+                    <div class="fee-item">
+                      <span class="fee-label">Charges copropriété</span>
+                      <span class="fee-value">{{ chargesCopropriete() | number:'1.0-0' }} €/mois</span>
+                    </div>
+                  }
+                </div>
               </div>
             }
           }
 
-          <!-- Localisation -->
+          <!-- 7. DIAGNOSTIC ÉNERGÉTIQUE (DPE / GES) -->
+          @if (announcement()?.dpe; as dpe) {
+            @if (dpe.letter_dpe || dpe.letter_ges) {
+              <div class="card dpe-card-lbc">
+                <h2 class="card-title">Diagnostic énergétique</h2>
+                <div class="lbc-diagnostics">
+                  <!-- DPE Section -->
+                  @if (dpe.letter_dpe) {
+                    <div class="lbc-diag-section">
+                      <div class="lbc-diag-header">
+                        <span class="lbc-diag-label">Consommation énergétique (DPE)</span>
+                        <button type="button" class="lbc-info-btn" (click)="toggleDpeInfo()" title="En savoir plus">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 16v-4"/>
+                            <path d="M12 8h.01"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <div class="lbc-letters-row dpe-letters">
+                        <div class="lbc-letter-box" data-letter="A" [class.active]="dpe.letter_dpe === 'A'">
+                          <span class="letter">A</span>
+                          @if (dpe.letter_dpe === 'A' && dpe.number_dpe) {
+                            <span class="value">{{ dpe.number_dpe }}</span>
+                          }
+                        </div>
+                        <div class="lbc-letter-box" data-letter="B" [class.active]="dpe.letter_dpe === 'B'">
+                          <span class="letter">B</span>
+                          @if (dpe.letter_dpe === 'B' && dpe.number_dpe) {
+                            <span class="value">{{ dpe.number_dpe }}</span>
+                          }
+                        </div>
+                        <div class="lbc-letter-box" data-letter="C" [class.active]="dpe.letter_dpe === 'C'">
+                          <span class="letter">C</span>
+                          @if (dpe.letter_dpe === 'C' && dpe.number_dpe) {
+                            <span class="value">{{ dpe.number_dpe }}</span>
+                          }
+                        </div>
+                        <div class="lbc-letter-box" data-letter="D" [class.active]="dpe.letter_dpe === 'D'">
+                          <span class="letter">D</span>
+                          @if (dpe.letter_dpe === 'D' && dpe.number_dpe) {
+                            <span class="value">{{ dpe.number_dpe }}</span>
+                          }
+                        </div>
+                        <div class="lbc-letter-box" data-letter="E" [class.active]="dpe.letter_dpe === 'E'">
+                          <span class="letter">E</span>
+                          @if (dpe.letter_dpe === 'E' && dpe.number_dpe) {
+                            <span class="value">{{ dpe.number_dpe }}</span>
+                          }
+                        </div>
+                        <div class="lbc-letter-box" data-letter="F" [class.active]="dpe.letter_dpe === 'F'">
+                          <span class="letter">F</span>
+                          @if (dpe.letter_dpe === 'F' && dpe.number_dpe) {
+                            <span class="value">{{ dpe.number_dpe }}</span>
+                          }
+                        </div>
+                        <div class="lbc-letter-box" data-letter="G" [class.active]="dpe.letter_dpe === 'G'">
+                          <span class="letter">G</span>
+                          @if (dpe.letter_dpe === 'G' && dpe.number_dpe) {
+                            <span class="value">{{ dpe.number_dpe }}</span>
+                          }
+                        </div>
+                      </div>
+                      <span class="lbc-unit-text">en kWhEP/m².an</span>
+                    </div>
+                  }
+
+                  <!-- GES Section -->
+                  @if (dpe.letter_ges) {
+                    <div class="lbc-diag-section">
+                      <div class="lbc-diag-header">
+                        <span class="lbc-diag-label">Émissions de gaz à effet de serre (GES)</span>
+                        <button type="button" class="lbc-info-btn" (click)="toggleGesInfo()" title="En savoir plus">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 16v-4"/>
+                            <path d="M12 8h.01"/>
+                          </svg>
+                        </button>
+                      </div>
+                      <div class="lbc-letters-row ges-letters">
+                        <div class="lbc-letter-box" data-letter="A" [class.active]="dpe.letter_ges === 'A'">
+                          <span class="letter">A</span>
+                          @if (dpe.letter_ges === 'A' && dpe.number_ges) {
+                            <span class="value">{{ dpe.number_ges }}</span>
+                          }
+                        </div>
+                        <div class="lbc-letter-box" data-letter="B" [class.active]="dpe.letter_ges === 'B'">
+                          <span class="letter">B</span>
+                          @if (dpe.letter_ges === 'B' && dpe.number_ges) {
+                            <span class="value">{{ dpe.number_ges }}</span>
+                          }
+                        </div>
+                        <div class="lbc-letter-box" data-letter="C" [class.active]="dpe.letter_ges === 'C'">
+                          <span class="letter">C</span>
+                          @if (dpe.letter_ges === 'C' && dpe.number_ges) {
+                            <span class="value">{{ dpe.number_ges }}</span>
+                          }
+                        </div>
+                        <div class="lbc-letter-box" data-letter="D" [class.active]="dpe.letter_ges === 'D'">
+                          <span class="letter">D</span>
+                          @if (dpe.letter_ges === 'D' && dpe.number_ges) {
+                            <span class="value">{{ dpe.number_ges }}</span>
+                          }
+                        </div>
+                        <div class="lbc-letter-box" data-letter="E" [class.active]="dpe.letter_ges === 'E'">
+                          <span class="letter">E</span>
+                          @if (dpe.letter_ges === 'E' && dpe.number_ges) {
+                            <span class="value">{{ dpe.number_ges }}</span>
+                          }
+                        </div>
+                        <div class="lbc-letter-box" data-letter="F" [class.active]="dpe.letter_ges === 'F'">
+                          <span class="letter">F</span>
+                          @if (dpe.letter_ges === 'F' && dpe.number_ges) {
+                            <span class="value">{{ dpe.number_ges }}</span>
+                          }
+                        </div>
+                        <div class="lbc-letter-box" data-letter="G" [class.active]="dpe.letter_ges === 'G'">
+                          <span class="letter">G</span>
+                          @if (dpe.letter_ges === 'G' && dpe.number_ges) {
+                            <span class="value">{{ dpe.number_ges }}</span>
+                          }
+                        </div>
+                      </div>
+                      <span class="lbc-unit-text">en kgéqCO₂/m².an</span>
+                    </div>
+                  }
+
+                  <!-- Coût estimé de l'énergie -->
+                  @if (dpe.min_price && dpe.max_price) {
+                    <div class="lbc-energy-cost">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                      </svg>
+                      <div class="cost-content">
+                        <span class="cost-label">Coût annuel estimé de l'énergie</span>
+                        <span class="cost-value">{{ dpe.min_price }} € - {{ dpe.max_price }} €</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          }
+
+          <!-- 8. LOCALISATION -->
           <div class="card location-card">
             <h2 class="card-title">Localisation</h2>
             <div class="location-display">
@@ -422,70 +721,15 @@
                 <line x1="8" y1="2" x2="8" y2="6"/>
                 <line x1="3" y1="10" x2="21" y2="10"/>
               </svg>
-              <span>Annonce publiée le {{ ann.date | date:'dd MMMM yyyy' }}</span>
+              <span>Annonce publiée {{ getRelativeDate(ann.date) }}</span>
             </div>
           }
         </div>
 
-        <!-- Right column - Price & Contact -->
+        <!-- Right column - Contact & Agency -->
         <div class="sidebar-column">
           <div class="sticky-sidebar">
-            <!-- Price card -->
-            <div class="price-card">
-              <div class="price-main">
-                <span class="price-amount">{{ ann.price | number:'1.0-0' }}</span>
-                <span class="price-currency">€</span>
-              </div>
-              @if (ann.contract_type === 'location') {
-                <span class="price-period">/ mois</span>
-              }
-              @if (ann.square_meter && ann.square_meter > 0) {
-                <div class="price-per-sqm">
-                  {{ ann.price / ann.square_meter | number:'1.0-0' }} €/m²
-                </div>
-              }
-
-              @if (prixHorsHonoraires() && prixHorsHonoraires() !== ann.price) {
-                <div class="price-detail">
-                  <span>Prix hors honoraires</span>
-                  <strong>{{ prixHorsHonoraires() | number:'1.0-0' }} €</strong>
-                </div>
-              }
-              @if (chargesCopropriete()) {
-                <div class="price-detail">
-                  <span>Charges</span>
-                  <strong>{{ chargesCopropriete() | number:'1.0-0' }} €/mois</strong>
-                </div>
-              }
-              @if (ann.is_agency_cost) {
-                <div class="price-note">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="16" x2="12" y2="12"/>
-                    <line x1="12" y1="8" x2="12.01" y2="8"/>
-                  </svg>
-                  Honoraires charge vendeur
-                </div>
-              }
-
-              <div class="price-actions">
-                <a href="tel:+33320304050" class="btn-primary">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                  </svg>
-                  03 20 30 40 50
-                </a>
-                <button type="button" class="btn-secondary" (click)="toggleContactForm()">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                    <polyline points="22,6 12,13 2,6"/>
-                  </svg>
-                  Envoyer un message
-                </button>
-              </div>
-            </div>
-
-            <!-- Agency card -->
+            <!-- Agency + Contact card combiné -->
             <div class="agency-card">
               <div class="agency-header">
                 <div class="agency-logo">
@@ -495,31 +739,46 @@
                   </svg>
                 </div>
                 <div class="agency-info">
-                  <span class="agency-name">Sergic</span>
+                  <span class="agency-name">{{ agencyInfo().name }}</span>
                   <span class="agency-type">Agence immobilière</span>
                 </div>
               </div>
-              <div class="agency-details">
-                <div class="agency-detail-item">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                  <span>40 rue de la Plaine, 59000 Lille</span>
+
+              @if (agencyInfo().address) {
+                <div class="agency-details">
+                  <div class="agency-detail-item">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                      <circle cx="12" cy="10" r="3"/>
+                    </svg>
+                    <span>{{ agencyInfo().address }}, {{ agencyInfo().zipCode }} {{ agencyInfo().city }}</span>
+                  </div>
                 </div>
-                <a href="https://www.sergic.com" target="_blank" rel="noopener" class="agency-link">
-                  Voir toutes nos annonces
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                    <polyline points="15 3 21 3 21 9"/>
-                    <line x1="10" y1="14" x2="21" y2="3"/>
-                  </svg>
-                </a>
-              </div>
+              }
+
+              @if (agencyInfo().phone) {
+                <div class="contact-actions desktop-only">
+                  <a [href]="'tel:' + agencyInfo().phone" class="btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                    </svg>
+                    {{ agencyInfo().phone }}
+                  </a>
+                </div>
+              }
+
+              <a href="https://www.sergic.com" target="_blank" rel="noopener" class="agency-link">
+                Voir toutes nos annonces
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                  <polyline points="15 3 21 3 21 9"/>
+                  <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+              </a>
             </div>
 
-            <!-- Share buttons -->
-            <div class="share-card">
+            <!-- Share buttons (desktop only - mobile uses sticky header) -->
+            <div class="share-card desktop-only">
               <span class="share-label">Partager cette annonce</span>
               <div class="share-buttons">
                 <button type="button" class="share-btn whatsapp" (click)="shareWhatsApp()" title="Partager sur WhatsApp">
@@ -545,39 +804,152 @@
               }
             </div>
 
-            <!-- Loan simulator (for sales only) -->
-            @if (ann.contract_type === 'achat') {
-              <div class="loan-card">
-                <h3 class="loan-title">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="4" width="20" height="16" rx="2"/>
-                    <path d="M12 8v8"/>
-                    <path d="M8 12h8"/>
-                  </svg>
-                  Simuler mon prêt
-                </h3>
-                <div class="loan-result">
-                  <span class="loan-label">Mensualité estimée</span>
-                  <span class="loan-amount">{{ getMonthlyPayment(ann.price) | number:'1.0-0' }} €/mois</span>
-                  <span class="loan-info">Sur 20 ans à 3.5%</span>
-                </div>
-                <a href="https://www.sergic.com/simulation-pret" target="_blank" rel="noopener" class="loan-link">
-                  Simuler un autre montant
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M5 12h14M12 5l7 7-7 7"/>
-                  </svg>
-                </a>
-              </div>
-            }
           </div>
         </div>
       </div>
     </div>
+
   }
 </main>
 
-<footer class="footer">
+<footer class="footer desktop-only">
   <div class="footer-content">
     <p>&copy; 2025 Sergic - Tous droits réservés</p>
   </div>
 </footer>
+
+<!-- Sticky contact button mobile -->
+@if (!loading() && !error() && announcement() && agencyInfo().phone) {
+  <div class="mobile-contact-bar mobile-only">
+    <a [href]="'tel:' + agencyInfo().phone" class="mobile-contact-btn phone full-width">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+      </svg>
+      Appeler l'agence
+    </a>
+  </div>
+}
+
+<!-- DPE Info Modal -->
+@if (showDpeInfo()) {
+  <div class="dpe-modal-overlay" (click)="toggleDpeInfo()">
+    <div class="dpe-modal" (click)="$event.stopPropagation()">
+      <div class="dpe-modal-header">
+        <h3>Consommation énergétique</h3>
+        <button type="button" class="dpe-modal-close" (click)="toggleDpeInfo()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="dpe-modal-content">
+        <p class="dpe-intro">Le Diagnostic de Performance Energétique (DPE) doit être réalisé lors de la mise en vente ou de la location d'un bien, il permet de réaliser un bilan complet sur la consommation énergétique de ce bien et d'en informer les futurs acquéreurs ou locataires.</p>
+
+        <p class="dpe-intro">Dans le cadre de ce DPE, un technicien évalue notamment :</p>
+        <ul class="dpe-list">
+          <li>Le bon état des systèmes de chauffage fixes et de climatisation du bien</li>
+          <li>L'isolation du bien</li>
+          <li>La consommation d'énergie du bien (en kWh/m²/an), grâce au rapport de la quantité d'énergie primaire du bien sur la surface habitable du lot</li>
+          <li>L'émission de gaz à effet de serre</li>
+        </ul>
+
+        <h4 class="dpe-subtitle">Bâtiment à usage principal d'habitation</h4>
+
+        <div class="dpe-scale-section">
+          <div class="dpe-scale-labels">
+            <span class="scale-label-top">Logement économe</span>
+            <span class="scale-label-bottom">Logement énergivore</span>
+          </div>
+          <div class="lbc-staircase dpe-staircase modal-staircase">
+            @if (announcement()?.dpe; as dpe) {
+              <div class="stair" data-letter="A" [class.active]="dpe.letter_dpe === 'A'"><span class="stair-letter">A</span><span class="stair-range">≤ 50</span></div>
+              <div class="stair" data-letter="B" [class.active]="dpe.letter_dpe === 'B'"><span class="stair-letter">B</span><span class="stair-range">51 à 90</span></div>
+              <div class="stair" data-letter="C" [class.active]="dpe.letter_dpe === 'C'"><span class="stair-letter">C</span><span class="stair-range">91 à 150</span></div>
+              <div class="stair" data-letter="D" [class.active]="dpe.letter_dpe === 'D'"><span class="stair-letter">D</span><span class="stair-range">151 à 230</span></div>
+              <div class="stair" data-letter="E" [class.active]="dpe.letter_dpe === 'E'"><span class="stair-letter">E</span><span class="stair-range">231 à 330</span></div>
+              <div class="stair" data-letter="F" [class.active]="dpe.letter_dpe === 'F'"><span class="stair-letter">F</span><span class="stair-range">331 à 450</span></div>
+              <div class="stair" data-letter="G" [class.active]="dpe.letter_dpe === 'G'"><span class="stair-letter">G</span><span class="stair-range">> 450</span></div>
+            }
+          </div>
+          <span class="scale-unit">en kWhEP/m².an</span>
+        </div>
+
+        <div class="dpe-legal">
+          <p>À compter du 1er janvier 2011, et conformément au décret n° 2010-1662 du 28 décembre 2010, toute annonce de vente ou de location d'un bien immobilier doit faire mention de la lettre correspondant à l'échelle de référence du classement énergétique et des émissions de gaz à effet de serre.</p>
+
+          <p>Pour les DPE délivrés avant le 1er juillet 2021, cette notation n'est pas faite en l'absence justifiée de relevés de consommation (DPE dits «vierges») pour les bâtiments construits avant le 1er janvier 1948 ou pour lesquels la totalité du chauffage est assurée par un équipement commun.</p>
+
+          <p>En application de la loi ELAN, la notion de DPE dits "vierges" disparaît pour les DPE délivrés à compter du 1er juillet 2021.</p>
+
+          <p>À noter : le DPE ne concerne que les parties privatives lorsqu'il s'agit d'une transaction au sein d'une copropriété. La durée de validité des DPE délivrés à compter du 1er juillet 2021 est de 10 ans, au-delà de cette durée, le DPE est à refaire. À compter du 1er janvier 2025, les DPE délivrés entre le 1er janvier 2018 et le 31 juillet 2021 ne seront plus valides.</p>
+
+          <p>L'arrêté du 3 novembre 2022 a introduit l'obligation de mentionner la consommation en énergie finale du logement, rapportée à la surface habitable considérée au sein de tout DPE établi depuis le 1er janvier 2023. Depuis cette même date, pour la France métropolitaine, le critère de performance énergétique (DPE), qui établit si un logement est décent est fixé au seuil maximal de consommation d'énergie finale de 450 kWh/m².</p>
+
+          <p><strong>À compter du 1er janvier 2025</strong>, seul un logement appartenant aux classes A à F du DPE peut être mis en location. Un logement dont le niveau de performance correspond à la classe G est considéré comme indécent et il est interdit de le proposer à la location.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- GES Info Modal -->
+@if (showGesInfo()) {
+  <div class="dpe-modal-overlay" (click)="toggleGesInfo()">
+    <div class="dpe-modal" (click)="$event.stopPropagation()">
+      <div class="dpe-modal-header">
+        <h3>Émissions de gaz à effet de serre</h3>
+        <button type="button" class="dpe-modal-close" (click)="toggleGesInfo()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="dpe-modal-content">
+        <p class="dpe-intro">Le Diagnostic de Performance Energétique (DPE) doit être réalisé lors de la mise en vente ou de la location d'un bien, il permet de réaliser un bilan complet sur la consommation énergétique de ce bien et d'en informer les futurs acquéreurs ou locataires.</p>
+
+        <p class="dpe-intro">Dans le cadre de ce DPE, un technicien évalue notamment :</p>
+        <ul class="dpe-list">
+          <li>Le bon état des systèmes de chauffage fixes et de climatisation du bien</li>
+          <li>L'isolation du bien</li>
+          <li>La consommation d'énergie du bien (en kWh/m²/an), grâce au rapport de la quantité d'énergie primaire du bien sur la surface habitable du lot</li>
+          <li>L'émission de gaz à effet de serre</li>
+        </ul>
+
+        <h4 class="dpe-subtitle">Bâtiment à usage principal d'habitation</h4>
+
+        <div class="dpe-scale-section">
+          <div class="dpe-scale-labels">
+            <span class="scale-label-top">Faible émission de GES</span>
+            <span class="scale-label-bottom">Forte émission de GES</span>
+          </div>
+          <div class="lbc-staircase ges-staircase modal-staircase">
+            @if (announcement()?.dpe; as dpe) {
+              <div class="stair" data-letter="A" [class.active]="dpe.letter_ges === 'A'"><span class="stair-letter">A</span><span class="stair-range">≤ 5</span></div>
+              <div class="stair" data-letter="B" [class.active]="dpe.letter_ges === 'B'"><span class="stair-letter">B</span><span class="stair-range">6 à 10</span></div>
+              <div class="stair" data-letter="C" [class.active]="dpe.letter_ges === 'C'"><span class="stair-letter">C</span><span class="stair-range">11 à 20</span></div>
+              <div class="stair" data-letter="D" [class.active]="dpe.letter_ges === 'D'"><span class="stair-letter">D</span><span class="stair-range">21 à 35</span></div>
+              <div class="stair" data-letter="E" [class.active]="dpe.letter_ges === 'E'"><span class="stair-letter">E</span><span class="stair-range">36 à 55</span></div>
+              <div class="stair" data-letter="F" [class.active]="dpe.letter_ges === 'F'"><span class="stair-letter">F</span><span class="stair-range">56 à 80</span></div>
+              <div class="stair" data-letter="G" [class.active]="dpe.letter_ges === 'G'"><span class="stair-letter">G</span><span class="stair-range">> 80</span></div>
+            }
+          </div>
+          <span class="scale-unit">en kgéqCO₂/m².an</span>
+        </div>
+
+        <div class="dpe-legal">
+          <p>À compter du 1er janvier 2011, et conformément au décret n° 2010-1662 du 28 décembre 2010, toute annonce de vente ou de location d'un bien immobilier doit faire mention de la lettre correspondant à l'échelle de référence du classement énergétique et des émissions de gaz à effet de serre.</p>
+
+          <p>Pour les DPE délivrés avant le 1er juillet 2021, cette notation n'est pas faite en l'absence justifiée de relevés de consommation (DPE dits «vierges») pour les bâtiments construits avant le 1er janvier 1948 ou pour lesquels la totalité du chauffage est assurée par un équipement commun.</p>
+
+          <p>En application de la loi ELAN, la notion de DPE dits "vierges" disparaît pour les DPE délivrés à compter du 1er juillet 2021.</p>
+
+          <p>À noter : le DPE ne concerne que les parties privatives lorsqu'il s'agit d'une transaction au sein d'une copropriété. La durée de validité des DPE délivrés à compter du 1er juillet 2021 est de 10 ans, au-delà de cette durée, le DPE est à refaire. À compter du 1er janvier 2025, les DPE délivrés entre le 1er janvier 2018 et le 31 juillet 2021 ne seront plus valides.</p>
+
+          <p>L'arrêté du 3 novembre 2022 a introduit l'obligation de mentionner la consommation en énergie finale du logement, rapportée à la surface habitable considérée au sein de tout DPE établi depuis le 1er janvier 2023. Depuis cette même date, pour la France métropolitaine, le critère de performance énergétique (DPE), qui établit si un logement est décent est fixé au seuil maximal de consommation d'énergie finale de 450 kWh/m².</p>
+
+          <p><strong>À compter du 1er janvier 2025</strong>, seul un logement appartenant aux classes A à F du DPE peut être mis en location. Un logement dont le niveau de performance correspond à la classe G est considéré comme indécent et il est interdit de le proposer à la location.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+}

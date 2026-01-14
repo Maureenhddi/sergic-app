@@ -1,0 +1,105 @@
+<a [routerLink]="['/annonces', announcement().slug]" class="card-link">
+  <div class="card-image">
+    @if (allImages().length > 0) {
+      <div
+        class="image-slider"
+        (touchstart)="onTouchStart($event)"
+        (touchmove)="onTouchMove($event)"
+        (touchend)="onTouchEnd()"
+      >
+        <div class="slider-track" [style.transform]="'translateX(' + (-currentIndex() * 100) + '%)'">
+          @for (img of allImages(); track img; let i = $index) {
+            <div class="slider-slide">
+              <img
+                [src]="getImageUrl(img)"
+                [alt]="announcement().label_type + ' à ' + announcement().city + ' - Photo ' + (i + 1)"
+                loading="lazy"
+              />
+            </div>
+          }
+        </div>
+        @if (hasMultipleImages()) {
+          <button type="button" class="slider-arrow slider-prev" (click)="prevImage($event)" aria-label="Photo précédente">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+          </button>
+          <button type="button" class="slider-arrow slider-next" (click)="nextImage($event)" aria-label="Photo suivante">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </button>
+          <div class="slider-dots">
+            @for (img of allImages(); track img; let i = $index) {
+              <span class="slider-dot" [class.active]="i === currentIndex()"></span>
+            }
+          </div>
+        }
+      </div>
+    } @else if (announcement().label_type.toLowerCase() === 'parking' || announcement().label_type.toLowerCase() === 'garage/box') {
+      <div class="placeholder-parking">
+        <span>P</span>
+      </div>
+    } @else {
+      <div class="placeholder-default">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+      </div>
+    }
+    <span class="card-badge" [class.rental]="announcement().contract_type === 'location'" [class.vacation]="announcement().contract_type === 'vacance'">
+      {{ getContractLabel(announcement().contract_type) }}
+    </span>
+    <button
+      type="button"
+      class="favorite-btn"
+      [class.active]="favoritesService.isFavorite(announcement().reference)"
+      (click)="toggleFavorite($event)"
+      [attr.aria-label]="favoritesService.isFavorite(announcement().reference) ? 'Retirer des favoris' : 'Ajouter aux favoris'"
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" [attr.fill]="favoritesService.isFavorite(announcement().reference) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="card-content">
+    <div class="card-row">
+      <span class="card-type">{{ announcement().label_type }}</span>
+      <span class="card-price">
+        {{ announcement().price | number:'1.0-0' }} €@if (announcement().contract_type === 'location') {<span class="price-period">/mois</span>}@if (announcement().contract_type === 'vacance') {<span class="price-period">/nuit</span>}
+      </span>
+    </div>
+
+    <div class="card-row">
+      <span class="card-features">
+        @if (announcement().contract_type === 'vacance') {
+          @if (announcement().number_of_beds) {
+            {{ announcement().number_of_beds }} pers.
+          }
+          @if (announcement().square_meter) {
+            · {{ announcement().square_meter }} m²
+          }
+        } @else {
+          {{ announcement().square_meter }} m²
+          @if (announcement().number_of_beds) {
+            · {{ announcement().number_of_beds }} pièces
+          }
+        }
+      </span>
+      @if (announcement().contract_type !== 'vacance' && announcement().square_meter) {
+        <span class="card-price-sqm">{{ (announcement().price / announcement().square_meter) | number:'1.0-0' }} €/m²</span>
+      }
+    </div>
+
+    <div class="card-location">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>
+      {{ announcement().zip_code }} {{ announcement().city }}
+    </div>
+  </div>
+</a>

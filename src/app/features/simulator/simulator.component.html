@@ -1,0 +1,387 @@
+<app-header />
+
+<main class="simulator-page">
+  <div class="container">
+    <h1 class="page-title">Simulateurs</h1>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button
+        type="button"
+        class="tab"
+        [class.active]="activeTab() === 'loan'"
+        (click)="setTab('loan')"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="4" width="20" height="16" rx="2"/>
+          <path d="M12 10v4"/>
+          <path d="M10 12h4"/>
+        </svg>
+        Prêt immobilier
+      </button>
+
+      <button
+        type="button"
+        class="tab"
+        [class.active]="activeTab() === 'notary'"
+        (click)="setTab('notary')"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        Frais de notaire
+      </button>
+
+      <button
+        type="button"
+        class="tab"
+        [class.active]="activeTab() === 'capacity'"
+        (click)="setTab('capacity')"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="1" x2="12" y2="23"/>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+        Capacité d'emprunt
+      </button>
+    </div>
+
+    <!-- Loan Simulator -->
+    @if (activeTab() === 'loan') {
+      <div class="simulator-content">
+        <div class="form-section">
+          <h2 class="section-title">Paramètres du prêt</h2>
+
+          <div class="form-group">
+            <label>Montant du bien</label>
+            <div class="input-wrapper">
+              <input
+                type="number"
+                [value]="loanAmount()"
+                (input)="updateLoanAmount($event)"
+                min="0"
+                step="10000"
+              />
+              <span class="input-suffix">€</span>
+            </div>
+            <input
+              type="range"
+              [value]="loanAmount()"
+              (input)="updateLoanAmount($event)"
+              min="50000"
+              max="1000000"
+              step="10000"
+              class="slider"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Apport personnel</label>
+            <div class="input-wrapper">
+              <input
+                type="number"
+                [value]="downPayment()"
+                (input)="updateDownPayment($event)"
+                min="0"
+                step="5000"
+              />
+              <span class="input-suffix">€</span>
+            </div>
+            <input
+              type="range"
+              [value]="downPayment()"
+              (input)="updateDownPayment($event)"
+              min="0"
+              [max]="loanAmount()"
+              step="5000"
+              class="slider"
+            />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Durée</label>
+              <div class="input-wrapper">
+                <input
+                  type="number"
+                  [value]="loanDuration()"
+                  (input)="updateLoanDuration($event)"
+                  min="5"
+                  max="30"
+                />
+                <span class="input-suffix">ans</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Taux d'intérêt</label>
+              <div class="input-wrapper">
+                <input
+                  type="number"
+                  [value]="loanRate()"
+                  (input)="updateLoanRate($event)"
+                  min="0"
+                  max="10"
+                  step="0.1"
+                />
+                <span class="input-suffix">%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Taux d'assurance</label>
+            <div class="input-wrapper">
+              <input
+                type="number"
+                [value]="insuranceRate()"
+                (input)="updateInsuranceRate($event)"
+                min="0"
+                max="1"
+                step="0.01"
+              />
+              <span class="input-suffix">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="results-section">
+          <div class="result-card main">
+            <span class="result-label">Mensualité totale</span>
+            <span class="result-value large">{{ totalMonthly() | number:'1.0-0' }} €</span>
+            <span class="result-detail">dont {{ monthlyInsurance() | number:'1.0-0' }} € d'assurance</span>
+          </div>
+
+          <div class="results-grid">
+            <div class="result-card">
+              <span class="result-label">Capital emprunté</span>
+              <span class="result-value">{{ loanAmount() - downPayment() | number:'1.0-0' }} €</span>
+            </div>
+
+            <div class="result-card">
+              <span class="result-label">Coût des intérêts</span>
+              <span class="result-value">{{ totalInterest() | number:'1.0-0' }} €</span>
+            </div>
+
+            <div class="result-card">
+              <span class="result-label">Coût de l'assurance</span>
+              <span class="result-value">{{ totalInsurance() | number:'1.0-0' }} €</span>
+            </div>
+
+            <div class="result-card">
+              <span class="result-label">Coût total du crédit</span>
+              <span class="result-value">{{ totalCost() | number:'1.0-0' }} €</span>
+            </div>
+          </div>
+
+          <div class="result-card highlight">
+            <span class="result-label">Montant total remboursé</span>
+            <span class="result-value large">{{ totalRepaid() | number:'1.0-0' }} €</span>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Notary Fees -->
+    @if (activeTab() === 'notary') {
+      <div class="simulator-content">
+        <div class="form-section">
+          <h2 class="section-title">Estimation des frais de notaire</h2>
+
+          <div class="form-group">
+            <label>Prix du bien</label>
+            <div class="input-wrapper">
+              <input
+                type="number"
+                [value]="propertyPrice()"
+                (input)="updatePropertyPrice($event)"
+                min="0"
+                step="10000"
+              />
+              <span class="input-suffix">€</span>
+            </div>
+            <input
+              type="range"
+              [value]="propertyPrice()"
+              (input)="updatePropertyPrice($event)"
+              min="50000"
+              max="1000000"
+              step="10000"
+              class="slider"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Type de bien</label>
+            <div class="toggle-buttons">
+              <button
+                type="button"
+                [class.active]="propertyType() === 'old'"
+                (click)="updatePropertyType('old')"
+              >
+                Ancien
+              </button>
+              <button
+                type="button"
+                [class.active]="propertyType() === 'new'"
+                (click)="updatePropertyType('new')"
+              >
+                Neuf (VEFA)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="results-section">
+          <div class="result-card main">
+            <span class="result-label">Frais de notaire estimés</span>
+            <span class="result-value large">{{ notaryFees().total | number:'1.0-0' }} €</span>
+            <span class="result-detail">
+              soit {{ (notaryFees().total / propertyPrice() * 100) | number:'1.1-1' }}% du prix
+            </span>
+          </div>
+
+          <h3 class="detail-title">Détail des frais</h3>
+
+          <div class="fees-breakdown">
+            <div class="fee-row">
+              <span class="fee-label">Droits de mutation (taxes)</span>
+              <span class="fee-value">{{ notaryFees().mutationFees | number:'1.0-0' }} €</span>
+            </div>
+            <div class="fee-row">
+              <span class="fee-label">Émoluments du notaire</span>
+              <span class="fee-value">{{ notaryFees().emoluments | number:'1.0-0' }} €</span>
+            </div>
+            <div class="fee-row">
+              <span class="fee-label">TVA sur émoluments</span>
+              <span class="fee-value">{{ notaryFees().tvaEmoluments | number:'1.0-0' }} €</span>
+            </div>
+            <div class="fee-row">
+              <span class="fee-label">Frais et débours</span>
+              <span class="fee-value">{{ notaryFees().debours | number:'1.0-0' }} €</span>
+            </div>
+            <div class="fee-row">
+              <span class="fee-label">Contribution sécurité immobilière</span>
+              <span class="fee-value">{{ notaryFees().securityContribution | number:'1.0-0' }} €</span>
+            </div>
+          </div>
+
+          <div class="result-card highlight">
+            <span class="result-label">Coût total du projet</span>
+            <span class="result-value large">{{ totalProjectCost() | number:'1.0-0' }} €</span>
+            <span class="result-detail">Prix + Frais de notaire</span>
+          </div>
+
+          <p class="disclaimer">
+            * Estimation indicative basée sur les barèmes 2024. Les frais réels peuvent varier.
+          </p>
+        </div>
+      </div>
+    }
+
+    <!-- Borrowing Capacity -->
+    @if (activeTab() === 'capacity') {
+      <div class="simulator-content">
+        <div class="form-section">
+          <h2 class="section-title">Capacité d'emprunt</h2>
+
+          <div class="form-group">
+            <label>Revenus mensuels nets</label>
+            <div class="input-wrapper">
+              <input
+                type="number"
+                [value]="monthlyIncome()"
+                (input)="updateMonthlyIncome($event)"
+                min="0"
+                step="100"
+              />
+              <span class="input-suffix">€</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Charges mensuelles (crédits en cours)</label>
+            <div class="input-wrapper">
+              <input
+                type="number"
+                [value]="monthlyCharges()"
+                (input)="updateMonthlyCharges($event)"
+                min="0"
+                step="50"
+              />
+              <span class="input-suffix">€</span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Durée souhaitée</label>
+              <div class="input-wrapper">
+                <input
+                  type="number"
+                  [value]="desiredDuration()"
+                  (input)="updateDesiredDuration($event)"
+                  min="5"
+                  max="30"
+                />
+                <span class="input-suffix">ans</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Taux estimé</label>
+              <div class="input-wrapper">
+                <input
+                  type="number"
+                  [value]="desiredRate()"
+                  (input)="updateDesiredRate($event)"
+                  min="0"
+                  max="10"
+                  step="0.1"
+                />
+                <span class="input-suffix">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="results-section">
+          <div class="result-card main">
+            <span class="result-label">Capacité d'emprunt</span>
+            <span class="result-value large">{{ borrowingCapacity() | number:'1.0-0' }} €</span>
+            <span class="result-detail">sur {{ desiredDuration() }} ans à {{ desiredRate() }}%</span>
+          </div>
+
+          <div class="results-grid">
+            <div class="result-card">
+              <span class="result-label">Mensualité max</span>
+              <span class="result-value">{{ maxMonthlyPayment() | number:'1.0-0' }} €</span>
+            </div>
+
+            <div class="result-card">
+              <span class="result-label">Taux d'endettement</span>
+              <span class="result-value" [class.warning]="debtRatio() > 33">
+                {{ debtRatio() | number:'1.0-0' }}%
+              </span>
+            </div>
+          </div>
+
+          <div class="info-box">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="16" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            <p>
+              Le taux d'endettement maximum recommandé est de <strong>35%</strong>.
+              Cette estimation ne tient pas compte des frais de notaire et de l'apport personnel.
+            </p>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</main>

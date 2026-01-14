@@ -1,8 +1,42 @@
 <app-header />
 
-<app-search (search)="onSearch($event)" />
+<!-- Offline banner -->
+@if (offlineCacheService.isOffline()) {
+  <div class="offline-banner">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="1" y1="1" x2="23" y2="23"/>
+      <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+      <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+      <path d="M10.71 5.05A16 16 0 0 1 22.58 9"/>
+      <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+      <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+      <line x1="12" y1="20" x2="12.01" y2="20"/>
+    </svg>
+    <span>Mode hors ligne - Affichage des annonces en cache</span>
+  </div>
+}
 
-<main class="main-content">
+<app-search
+  [geoLocating]="locatingUser()"
+  [geoActive]="geoFilterEnabled()"
+  [searchRadius]="searchRadius()"
+  (search)="onSearch($event)"
+  (locateUser)="toggleGeoFilter()"
+  (radiusChange)="onRadiusChange($event)"
+/>
+
+<!-- Pull to refresh indicator -->
+@if (isRefreshing()) {
+  <div class="pull-refresh-indicator">
+    <div class="loader-spinner"></div>
+    <span>Actualisation...</span>
+  </div>
+}
+
+<main class="main-content"
+  (touchstart)="onPullStart($event)"
+  (touchmove)="onPullMove($event)"
+  (touchend)="onPullEnd()">
   <div class="container">
     <div class="results-header">
       <h2 class="results-title">
@@ -13,43 +47,6 @@
         }
       </h2>
       <div class="header-actions">
-        <!-- Géolocalisation -->
-        <div class="geo-controls">
-          <button
-            type="button"
-            class="geo-btn"
-            [class.active]="geoFilterEnabled()"
-            [class.loading]="locatingUser()"
-            (click)="toggleGeoFilter()"
-            [title]="geoFilterEnabled() ? 'Désactiver le filtre géographique' : 'Me localiser'"
-          >
-            @if (locatingUser()) {
-              <svg class="spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10" stroke-dasharray="30 60"/>
-              </svg>
-            } @else {
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
-              </svg>
-            }
-            @if (geoFilterEnabled()) {
-              <span>Autour de moi</span>
-            } @else {
-              <span>Me localiser</span>
-            }
-          </button>
-          @if (geoFilterEnabled()) {
-            <select class="radius-select" [value]="searchRadius()" (change)="updateRadius($event)">
-              <option value="5">5 km</option>
-              <option value="10">10 km</option>
-              <option value="20">20 km</option>
-              <option value="50">50 km</option>
-              <option value="100">100 km</option>
-            </select>
-          }
-        </div>
-
         <!-- View toggle -->
         <div class="view-toggle">
           <button
@@ -67,7 +64,7 @@
               <line x1="3" y1="12" x2="3.01" y2="12"/>
               <line x1="3" y1="18" x2="3.01" y2="18"/>
             </svg>
-            Liste
+            <span class="btn-label">Liste</span>
           </button>
           <button
             type="button"
@@ -81,18 +78,16 @@
               <line x1="8" y1="2" x2="8" y2="18"/>
               <line x1="16" y1="6" x2="16" y2="22"/>
             </svg>
-            Carte
+            <span class="btn-label">Carte</span>
           </button>
         </div>
-        <div class="sort-options">
-          <label for="sort" class="sr-only">Trier par</label>
-          <select id="sort" class="sort-select">
-            <option value="recent">Plus récents</option>
-            <option value="price-asc">Prix croissant</option>
-            <option value="price-desc">Prix décroissant</option>
-            <option value="surface">Surface</option>
-          </select>
-        </div>
+        <label for="sort" class="sr-only">Trier par</label>
+        <select id="sort" class="sort-select" [value]="sortBy()" (change)="onSortChange($event)">
+          <option value="recent">Plus récents</option>
+          <option value="price-asc">Prix croissant</option>
+          <option value="price-desc">Prix décroissant</option>
+          <option value="surface">Surface</option>
+        </select>
       </div>
     </div>
 
@@ -137,60 +132,9 @@
       <!-- List View -->
       @if (viewMode() === 'list') {
         <ul class="announcements-grid" role="list">
-          @for (announcement of visibleAnnouncements(); track announcement.reference) {
-            <li class="announcement-card">
-              <article>
-                <div class="card-image">
-                  @if (announcement.picture) {
-                    <img
-                      [src]="getImageUrl(announcement.picture)"
-                      [alt]="announcement.label_type + ' à ' + announcement.city"
-                      loading="lazy"
-                    />
-                  }
-                  <span class="card-badge" [class.rental]="announcement.contract_type === 'location'">
-                    {{ getContractLabel(announcement.contract_type) }}
-                  </span>
-                  <button type="button" class="favorite-btn" aria-label="Ajouter aux favoris">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                    </svg>
-                  </button>
-                </div>
-
-                <div class="card-content">
-                  <div class="card-header">
-                    <span class="card-type">{{ announcement.label_type }} - {{ announcement.place_type | titlecase }}</span>
-                    <span class="card-ref">Réf. {{ announcement.reference }}</span>
-                  </div>
-
-                  <p class="card-price">{{ announcement.price | number:'1.0-0' }} €</p>
-
-                  <div class="card-features">
-                    <span class="feature">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2"/>
-                      </svg>
-                      {{ announcement.square_meter }} m²
-                    </span>
-                  </div>
-
-                  <div class="card-location">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                      <circle cx="12" cy="10" r="3"/>
-                    </svg>
-                    <span>{{ announcement.zip_code }} {{ announcement.city }}</span>
-                  </div>
-
-                  <a [routerLink]="['/annonces', announcement.slug]" class="card-link">
-                    Voir l'annonce
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                  </a>
-                </div>
-              </article>
+          @for (announcement of visibleAnnouncements(); track $index) {
+            <li>
+              <app-announcement-card [announcement]="announcement" />
             </li>
           } @empty {
             <li class="empty-state">
@@ -218,8 +162,14 @@
   </div>
 </main>
 
-<footer class="footer">
+<footer class="footer desktop-only">
   <div class="container">
     <p>&copy; 2024 Sergic - Tous droits réservés</p>
   </div>
 </footer>
+
+<app-bottom-nav
+  [showViewToggle]="true"
+  [viewMode]="viewMode()"
+  (viewToggle)="toggleView($event)"
+/>

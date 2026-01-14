@@ -19,8 +19,11 @@ export interface Announcement {
   number_of_beds: number | null;
   expense_search: number | null;
   picture: string;
+  pictures?: string[];
   detail: string;
   date: string;
+  // Enriched fields (fetched from detail API)
+  title?: string;
 }
 
 export interface AnnouncementExtra {
